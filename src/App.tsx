@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from 'react';
+import React, { FC, useState, useEffect } from 'react';
 
 type List = {
   list: {
@@ -16,7 +16,7 @@ type YearTableProps = {
 
 type MonthTableProps = {
   list: {
-    month: string,
+    month: number,
     amount: number,
   }[],
 };
@@ -35,16 +35,20 @@ const YearTable: FC<YearTableProps> = (props) => {
     <div>
       <h2>Year Table</h2>
       <table>
-        <tr>
-          <th>Year</th>
-          <th>Amount</th>
-        </tr>
-        {props.list.map(item => (
+        <thead>
           <tr>
-            <td>{item.year}</td>
-            <td>{item.amount}</td>
+            <th>Year</th>
+            <th>Amount</th>
           </tr>
-        ))}
+        </thead>
+        <tbody>
+          {props.list.map((item, key) => (
+            <tr key={key}>
+              <td>{item.year}</td>
+              <td>{item.amount}</td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
@@ -57,16 +61,20 @@ const SortTable: FC<SortTableProps> = (props) => {
     <div>
       <h2>Sort Table</h2>
       <table>
-        <tr>
-          <th>Date</th>
-          <th>Amount</th>
-        </tr>
-        {props.list.map(item => (
+        <thead>
           <tr>
-            <td>{item.date}</td>
-            <td>{item.amount}</td>
+            <th>Date</th>
+            <th>Amount</th>
           </tr>
-        ))}
+        </thead>
+        <tbody>
+          {props.list.map((item, key) => (
+            <tr key={key}>
+              <td>{item.date}</td>
+              <td>{item.amount}</td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
@@ -79,56 +87,70 @@ const MonthTable: FC<MonthTableProps> = (props) => {
     <div>
       <h2>Month Table</h2>
       <table>
-        <tr>
-          <th>Month</th>
-          <th>Amount</th>
-        </tr>
-        {props.list.map(item => (
+        <thead>
           <tr>
-            <td>{item.month}</td>
-            <td>{item.amount}</td>
+            <th>Month</th>
+            <th>Amount</th>
           </tr>
-        ))}
+        </thead>
+        <tbody>
+          {props.list.map((item, key) => (
+            <tr key={key}>
+              <td>{item.month}</td>
+              <td>{item.amount}</td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
 }
 
-const withSorting = (Component: any) => {
-  // const { func } = options;
+type GroupByMonth = (list: { date: string, amount: number }[]) => { month: number, amount: number }[];
 
-  
-  const WithSorting: FC<List> = (props) => {
+type GroupByYear = (list: { date: string, amount: number }[]) => { year: number, amount: number }[];
 
-    console.log('WithSorting', props);
+type SortВescending = (list: { date: string, amount: number }[]) => { date: string, amount: number }[];
 
-    const { list } = props;
+const groupByMonthForTheCurrentYear: GroupByMonth = (list) => {
+  return list.
+    filter(item => new Date(item.date).getFullYear() === 2018).
+    map(item => ({ month: new Date(item.date).getMonth() + 1, amount: item.amount })).
+    sort((a, b) => a.month - b.month);
+}
 
-    console.log('WithSorting.list', list);
-    
-    const newArr = list.filter(item => new Date(item.date).getFullYear() === 2018).sort((a, b) => new Date(a.date).getMonth() - new Date(b.date).getMonth());
+const groupByYear: GroupByYear = (list) => {
+  return list.
+    map(item => ({ year: new Date(item.date).getFullYear(), amount: item.amount })).
+    sort((a, b) => a.year - b.year);
+}
 
-    
+const sortВescending: SortВescending = (list) => {
+  return list.sort((a, b) => b.amount - a.amount);
+}
 
-    
+function withSorting<T extends MonthTableProps | YearTableProps | SortTableProps>(Component: React.ComponentType<T>, func: GroupByMonth | GroupByYear | SortВescending) {
+
+  const WithSorting: FC<List> = ({ list }) => {
+
     return (
       <>
-        <Component list={newArr}/>
+        <Component  {...{ list: func(list) } as T} />
       </>
     );
   }
-  const componentName = Component.displayName || Component.name;
+
+  const componentName = Component.displayName || Component.name || "Component";
   WithSorting.displayName = `withSorting(${componentName})`;
-  
+
   return WithSorting;
 }
 
-// TODO:
-// 1. Загрузите данные с помощью fetch: https://raw.githubusercontent.com/netology-code/ra16-homeworks/master/hoc/aggregation/data/data.json
-// 2. Не забудьте вынести URL в переменные окружения (не хардкодьте их здесь)
-// 3. Положите их в state
+const MonthTableWithSorting = withSorting(MonthTable, groupByMonthForTheCurrentYear);
 
-const MonthTableWithSorting = withSorting(MonthTable);
+const YearTableWithSorting = withSorting(YearTable, groupByYear);
+
+const SortTableWithSorting = withSorting(SortTable, sortВescending);
 
 const App = () => {
 
@@ -137,10 +159,9 @@ const App = () => {
   const fetchData = async () => {
     const r = await fetch('https://raw.githubusercontent.com/netology-code/ra16-homeworks/master/hoc/aggregation/data/data.json');
     const data = await r.json();
-    console.log("data", data);
-    setList(data);
+    setList(data.list);
   }
-    
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -148,8 +169,8 @@ const App = () => {
   return (
     <div id="app">
       <MonthTableWithSorting list={list} />
-      {/* <YearTable list={list} />
-      <SortTable list={list} /> */}
+      <YearTableWithSorting list={list} />
+      <SortTableWithSorting list={list} />
     </div>
   );
 
